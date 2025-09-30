@@ -1,0 +1,84 @@
+{
+  "examples": [
+    {
+      "name": "Produto Tangível Durável",
+      "request": {
+        "productName": "iPhone 15 Pro",
+        "description": "Smartphone premium com tela de 6.1 polegadas, câmera de 48MP, chip A17 Pro e estrutura em titânio",
+        "category": "Eletrônicos"
+      },
+      "expectedType": "TANGIBLE",
+      "expectedSubtype": "DURABLE"
+    },
+    {
+      "name": "Produto Tangível Consumível",
+      "request": {
+        "productName": "Shampoo Pantene",
+        "description": "Shampoo para cabelos oleosos, 400ml, com fórmula que remove oleosidade sem ressecar",
+        "category": "Cosméticos"
+      },
+      "expectedType": "TANGIBLE",
+      "expectedSubtype": "CONSUMABLE"
+    },
+    {
+      "name": "Produto Intangível - Serviço",
+      "request": {
+        "productName": "Consultoria em Marketing Digital",
+        "description": "Serviços especializados em estratégias de marketing digital, SEO e gestão de redes sociais",
+        "category": "Serviços"
+      },
+      "expectedType": "INTANGIBLE",
+      "expectedSubtype": "SERVICE"
+    },
+    {
+      "name": "Produto Intangível - Digital",
+      "request": {
+        "productName": "Adobe Photoshop",
+        "description": "Software de edição de imagens profissional com ferramentas avançadas de design gráfico",
+        "category": "Software"
+      },
+      "expectedType": "INTANGIBLE",
+      "expectedSubtype": "DIGITAL"
+    },
+    {
+      "name": "Produto Intangível - Experiência",
+      "request": {
+        "productName": "Curso de Python Online",
+        "description": "Curso completo de programação Python do básico ao avançado, com certificado e projetos práticos",
+        "category": "Educação"
+      },
+      "expectedType": "INTANGIBLE",
+      "expectedSubtype": "EXPERIENCE"
+    },
+    {
+      "name": "Produto Híbrido",
+      "request": {
+        "productName": "Tesla Model 3 com Autopilot",
+        "description": "Veículo elétrico com sistema de direção autônoma, atualizações de software over-the-air e serviços conectados",
+        "category": "Automotivo"
+      },
+      "expectedType": "HYBRID",
+      "expectedSubtype": "MIXED"
+    },
+    {
+      "name": "Produto Tangível Não Durável",
+      "request": {
+        "productName": "Camiseta Nike Dri-FIT",
+        "description": "Camiseta esportiva masculina, tecido que absorve suor, tamanho M, cor preta",
+        "category": "Vestuário"
+      },
+      "expectedType": "TANGIBLE",
+      "expectedSubtype": "NON_DURABLE"
+    },
+    {
+      "name": "Produto Intangível - Conhecimento",
+      "request": {
+        "productName": "Licença de Uso de Patente",
+        "description": "Direitos de uso de tecnologia patenteada para fabricação de semicondutores",
+        "category": "Propriedade Intelectual"
+      },
+      "expectedType": "INTANGIBLE",
+      "expectedSubtype": "KNOWLEDGE"
+    }
+  ]
+}
