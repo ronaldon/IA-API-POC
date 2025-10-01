@@ -1,29 +1,20 @@
 package com.example.aipoc.service;
 
+import com.example.aipoc.model.GeminiConfig;
 import com.example.aipoc.model.ProductClassificationRequest;
 import com.example.aipoc.model.ProductClassificationResponse;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
-public class ProductTangibilityService {
-
-    private static final Logger logger = LoggerFactory.getLogger(ProductTangibilityService.class);
+public class ProductTangibilityService extends BaseGeminiService {
 
     // DTO para mapear o JSON da resposta da IA
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -37,59 +28,25 @@ public class ProductTangibilityService {
         public List<String> characteristics;
     }
 
-    @Autowired
-    private WebClient geminiWebClient;
-
-    @Value("${gemini.api.model}")
-    private String model;
-
-    @Value("${gemini.api.key}")
-    private String apiKey;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     public Mono<ProductClassificationResponse> classifyProduct(ProductClassificationRequest request) {
-        logger.debug("Classificando produto por tangibilidade: {}", request.getProductName());
+        logOperationStart("classificação de produto", "Produto: " + request.getProductName());
 
         try {
-            Map<String, Object> requestBody = buildClassificationRequestBody(request);
-            String endpoint = "/models/" + model + ":generateContent?key=" + apiKey;
+            String prompt = buildClassificationPrompt(request);
+            GeminiConfig config = createConfig(0.2, 800);
+            Map<String, Object> requestBody = buildBaseRequestBody(prompt, config);
 
-            return geminiWebClient
-                    .post()
-                    .uri(endpoint)
-                    .bodyValue(requestBody)
-                    .retrieve()
-                    .bodyToMono(String.class)
+            return callGeminiApi(requestBody, config)
                     .map(response -> parseClassificationResponse(response, request.getProductName()))
-                    .doOnError(error -> logger.error("Erro ao classificar produto: {}", error.getMessage()))
-                    .onErrorReturn(ProductClassificationResponse.error("Erro ao processar classificação"));
+                    .doOnError(error -> handleApiError(
+                            "classificação de produto",
+                            error,
+                            ProductClassificationResponse.error("Erro ao processar classificação")));
 
         } catch (Exception e) {
-            logger.error("Erro ao construir requisição de classificação: {}", e.getMessage());
-            return Mono.just(ProductClassificationResponse.error("Erro interno do servidor"));
+            return Mono.just(handleApiError("construção de requisição de classificação", e, 
+                                          ProductClassificationResponse.error("Erro interno do servidor")));
         }
-    }
-
-    private Map<String, Object> buildClassificationRequestBody(ProductClassificationRequest request) {
-        Map<String, Object> requestBody = new HashMap<>();
-
-        Map<String, Object> generationConfig = new HashMap<>();
-        generationConfig.put("temperature", 0.2); // Baixa temperatura para classificação consistente
-        generationConfig.put("maxOutputTokens", 800);
-        requestBody.put("generationConfig", generationConfig);
-
-        String prompt = buildClassificationPrompt(request);
-
-        Map<String, Object> textPart = new HashMap<>();
-        textPart.put("text", prompt);
-
-        Map<String, Object> content = new HashMap<>();
-        content.put("parts", List.of(textPart));
-
-        requestBody.put("contents", List.of(content));
-
-        return requestBody;
     }
 
     private String buildClassificationPrompt(ProductClassificationRequest request) {
@@ -152,34 +109,18 @@ public class ProductTangibilityService {
 
     private ProductClassificationResponse parseClassificationResponse(String responseBody, String productName) {
         try {
-            logger.debug("Resposta da IA: {}", responseBody);
-
-            JsonNode jsonNode = objectMapper.readTree(responseBody);
-            JsonNode candidates = jsonNode.path("candidates");
-
-            if (candidates.isEmpty()) {
+            String content = extractContentFromResponse(responseBody);
+            
+            if (content == null) {
+                logger.warn("Nenhum conteúdo extraído da resposta da API para classificação de produto");
                 return ProductClassificationResponse.error("Nenhuma classificação gerada");
             }
-
-            JsonNode candidate = candidates.get(0);
-            String finishReason = candidate.path("finishReason").asText();
-
-            if (!"STOP".equals(finishReason)) {
-                return ProductClassificationResponse.error("Classificação incompleta. Motivo: " + finishReason);
-            }
-
-            String content = candidate
-                    .path("content")
-                    .path("parts")
-                    .get(0)
-                    .path("text")
-                    .asText();
 
             return parseJsonFromContent(content, productName);
 
         } catch (Exception e) {
-            logger.error("Erro ao fazer parse da classificação: {}", e.getMessage());
-            return ProductClassificationResponse.error("Erro ao processar classificação");
+            return handleApiError("parse da classificação", e, 
+                                ProductClassificationResponse.error("Erro ao processar classificação"));
         }
     }
 

@@ -1,85 +1,40 @@
 package com.example.aipoc.service;
 
+import com.example.aipoc.model.GeminiConfig;
 import com.example.aipoc.model.SentimentRequest;
 import com.example.aipoc.model.SentimentResponse;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
-public class SentimentAnalysisService {
-
-    private static final Logger logger = LoggerFactory.getLogger(SentimentAnalysisService.class);
-
-    @Autowired
-    private WebClient geminiWebClient;
-
-    @Value("${gemini.api.model}")
-    private String model;
-
-    @Value("${gemini.api.key}")
-    private String apiKey;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
+public class SentimentAnalysisService extends BaseGeminiService {
 
     public Mono<SentimentResponse> analyzeSentiment(SentimentRequest request) {
-        logger.debug("Analisando sentimento do texto: {}",
-                request.getText().substring(0, Math.min(50, request.getText().length())));
+        logOperationStart("análise de sentimento", 
+                "Texto: " + request.getText().substring(0, Math.min(50, request.getText().length())));
 
         try {
-            Map<String, Object> requestBody = buildSentimentRequestBody(request);
-            String endpoint = "/models/" + model + ":generateContent?key=" + apiKey;
+            String prompt = buildSentimentPrompt(request);
+            GeminiConfig config = createConfig(0.1, 500);
+            Map<String, Object> requestBody = buildBaseRequestBody(prompt, config);
 
-            return geminiWebClient
-                    .post()
-                    .uri(endpoint)
-                    .bodyValue(requestBody)
-                    .retrieve()
-                    .bodyToMono(String.class)
+            return callGeminiApi(requestBody, config)
                     .map(response -> parseSentimentResponse(response, request.getText()))
                     .doOnError(error -> logger.error("Erro ao analisar sentimento: {}", error.getMessage()))
                     .onErrorReturn(SentimentResponse.error("Erro ao processar análise de sentimento"));
 
         } catch (Exception e) {
-            logger.error("Erro ao construir requisição de sentimento: {}", e.getMessage());
-            return Mono.just(SentimentResponse.error("Erro interno do servidor"));
+            return Mono.just(handleApiError("construção de requisição de sentimento", e, 
+                    SentimentResponse.error("Erro interno do servidor")));
         }
     }
 
-    private Map<String, Object> buildSentimentRequestBody(SentimentRequest request) {
-        Map<String, Object> requestBody = new HashMap<>();
 
-        // Configuração de geração
-        Map<String, Object> generationConfig = new HashMap<>();
-        generationConfig.put("temperature", 0.1); // Baixa temperatura para análise mais consistente
-        generationConfig.put("maxOutputTokens", 500);
-        requestBody.put("generationConfig", generationConfig);
-
-        // Prompt especializado para análise de sentimento
-        String prompt = buildSentimentPrompt(request);
-
-        Map<String, Object> textPart = new HashMap<>();
-        textPart.put("text", prompt);
-
-        Map<String, Object> content = new HashMap<>();
-        content.put("parts", List.of(textPart));
-
-        requestBody.put("contents", List.of(content));
-
-        return requestBody;
-    }
 
     private String buildSentimentPrompt(SentimentRequest request) {
         return String.format("""
@@ -100,34 +55,18 @@ public class SentimentAnalysisService {
 
     private SentimentResponse parseSentimentResponse(String responseBody, String originalText) {
         try {
-            logger.debug("Resposta da IA: {}", responseBody);
+            String content = extractContentFromResponse(responseBody);
             
-            JsonNode jsonNode = objectMapper.readTree(responseBody);
-            JsonNode candidates = jsonNode.path("candidates");
-
-            if (candidates.isEmpty()) {
+            if (content == null) {
+                logger.warn("Nenhum conteúdo extraído da resposta da API para análise de sentimento");
                 return SentimentResponse.error("Nenhuma análise gerada");
             }
-
-            JsonNode candidate = candidates.get(0);
-            String finishReason = candidate.path("finishReason").asText();
-
-            if (!"STOP".equals(finishReason)) {
-                return SentimentResponse.error("Análise incompleta. Motivo: " + finishReason);
-            }
-
-            String content = candidate
-                    .path("content")
-                    .path("parts")
-                    .get(0)
-                    .path("text")
-                    .asText();
 
             return parseJsonFromContent(content, originalText);
 
         } catch (Exception e) {
-            logger.error("Erro ao fazer parse da análise de sentimento: {}", e.getMessage());
-            return SentimentResponse.error("Erro ao processar análise");
+            return handleApiError("parse da análise de sentimento", e, 
+                    SentimentResponse.error("Erro ao processar análise"));
         }
     }
 

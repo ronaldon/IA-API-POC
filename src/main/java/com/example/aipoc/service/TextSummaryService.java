@@ -1,80 +1,45 @@
 package com.example.aipoc.service;
 
 import com.example.aipoc.model.AiResponse;
+import com.example.aipoc.model.GeminiConfig;
 import com.example.aipoc.model.SummaryRequest;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Service
-public class TextSummaryService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(TextSummaryService.class);
-    
-    @Autowired
-    private WebClient geminiWebClient;
-    
-    @Value("${gemini.api.model}")
-    private String model;
-    
-    @Value("${gemini.api.key}")
-    private String apiKey;
-    
-    private final ObjectMapper objectMapper = new ObjectMapper();
+public class TextSummaryService extends BaseGeminiService {
     
     public Mono<AiResponse> summarizeText(SummaryRequest request) {
-        logger.debug("Resumindo texto de {} caracteres", request.getText().length());
+        logOperationStart("resumo de texto", String.format("Texto de %d caracteres", request.getText().length()));
         
         try {
-            Map<String, Object> requestBody = buildSummaryRequestBody(request);
-            String endpoint = "/models/" + model + ":generateContent?key=" + apiKey;
+            String prompt = buildSummaryPrompt(request);
+            GeminiConfig config = createConfig(0.3, 1000);
+            Map<String, Object> requestBody = buildBaseRequestBody(prompt, config);
             
-            return geminiWebClient
-                    .post()
-                    .uri(endpoint)
-                    .bodyValue(requestBody)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .map(this::parseGeminiResponse)
-                    .doOnError(error -> logger.error("Erro ao resumir texto: {}", error.getMessage()))
-                    .onErrorReturn(AiResponse.error("Erro ao processar resumo"));
+            long startTime = System.currentTimeMillis();
+            
+            return callGeminiApi(requestBody, config)
+                    .map(responseBody -> parseGeminiResponse(responseBody, config.getModel()))
+                    .doOnNext(response -> {
+                        long duration = System.currentTimeMillis() - startTime;
+                        logOperationSuccess("resumo de texto", duration, response.getTokensUsed());
+                    })
+                    .doOnError(error -> handleApiError(
+                            "Erro ao processar resumo",
+                            error,
+                            AiResponse.error("Erro ao processar classificação")));
                     
         } catch (Exception e) {
-            logger.error("Erro ao construir requisição de resumo: {}", e.getMessage());
-            return Mono.just(AiResponse.error("Erro interno do servidor"));
+            return Mono.just(handleApiError("construção de requisição de resumo", e, 
+                AiResponse.error("Erro interno do servidor")));
         }
     }
     
-    private Map<String, Object> buildSummaryRequestBody(SummaryRequest request) {
-        Map<String, Object> requestBody = new HashMap<>();
-        
-        Map<String, Object> generationConfig = new HashMap<>();
-        generationConfig.put("temperature", 0.3);
-        generationConfig.put("maxOutputTokens", 1000);
-        requestBody.put("generationConfig", generationConfig);
-        
-        String prompt = buildSummaryPrompt(request);
-        
-        Map<String, Object> textPart = new HashMap<>();
-        textPart.put("text", prompt);
-        
-        Map<String, Object> content = new HashMap<>();
-        content.put("parts", List.of(textPart));
-        
-        requestBody.put("contents", List.of(content));
-        
-        return requestBody;
-    }
+
     
     private String buildSummaryPrompt(SummaryRequest request) {
         String styleInstruction = switch (request.getStyle().toLowerCase()) {
@@ -93,45 +58,36 @@ public class TextSummaryService {
             """, styleInstruction, request.getMaxSentences(), request.getText());
     }
     
-    private AiResponse parseGeminiResponse(String responseBody) {
+    private AiResponse parseGeminiResponse(String responseBody, String model) {
         try {
-            logger.debug("Resposta da IA: {}", responseBody);
+            // Use base class method to extract content
+            String content = extractContentFromResponse(responseBody);
             
+            if (content == null || content.trim().isEmpty()) {
+                return AiResponse.error("Nenhum resumo gerado ou conteúdo vazio");
+            }
+            
+            // Check for specific finish reasons that should return errors
             JsonNode jsonNode = objectMapper.readTree(responseBody);
             JsonNode candidates = jsonNode.path("candidates");
             
-            if (candidates.isEmpty()) {
-                return AiResponse.error("Nenhum resumo gerado");
+            if (!candidates.isEmpty()) {
+                JsonNode candidate = candidates.get(0);
+                String finishReason = candidate.path("finishReason").asText();
+                
+                if ("MAX_TOKENS".equals(finishReason)) {
+                    return AiResponse.error("Resumo cortado por limite de tokens. Tente um texto menor.");
+                }
             }
             
-            JsonNode candidate = candidates.get(0);
-            String finishReason = candidate.path("finishReason").asText();
+            // Use base class method to extract token usage
+            int tokensUsed = extractTokenUsage(responseBody);
             
-            if ("MAX_TOKENS".equals(finishReason)) {
-                return AiResponse.error("Resumo cortado por limite de tokens. Tente um texto menor.");
-            }
-            
-            String content = candidate
-                    .path("content")
-                    .path("parts")
-                    .get(0)
-                    .path("text")
-                    .asText();
-            
-            if (content.trim().isEmpty()) {
-                return AiResponse.error("Resumo vazio gerado");
-            }
-
-            int tokensUsed = jsonNode
-                    .path("usageMetadata")
-                    .path("totalTokenCount")
-                    .asInt(0);
-
             return new AiResponse(content, model, tokensUsed);
 
         } catch (Exception e) {
-            logger.error("Erro ao fazer parse do resumo: {}", e.getMessage());
-            return AiResponse.error("Erro ao processar resumo");
+            return handleApiError("parsing de resposta de resumo", e, 
+                AiResponse.error("Erro ao processar resumo"));
         }
     }
 }

@@ -4,7 +4,7 @@ import com.example.aipoc.model.AiRequest;
 import com.example.aipoc.model.AiResponse;
 import com.example.aipoc.model.SentimentRequest;
 import com.example.aipoc.model.SentimentResponse;
-import com.example.aipoc.service.AiService;
+import com.example.aipoc.service.AiGeneralService;
 import com.example.aipoc.service.SentimentAnalysisService;
 import com.example.aipoc.model.SummaryRequest;
 import com.example.aipoc.service.TextSummaryService;
@@ -30,7 +30,7 @@ public class AiController {
     private static final Logger logger = LoggerFactory.getLogger(AiController.class);
 
     @Autowired
-    private AiService aiService;
+    private AiGeneralService aiService;
 
     @Autowired
     private SentimentAnalysisService sentimentAnalysisService;
