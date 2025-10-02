@@ -33,7 +33,7 @@ public class ProductTangibilityService extends BaseGeminiService {
 
         try {
             String prompt = buildClassificationPrompt(request);
-            GeminiConfig config = createConfig(0.2, 800);
+            GeminiConfig config = createConfig(0.2, 1200);
             Map<String, Object> requestBody = buildBaseRequestBody(prompt, config);
 
             return callGeminiApi(requestBody, config)
@@ -44,8 +44,8 @@ public class ProductTangibilityService extends BaseGeminiService {
                             ProductClassificationResponse.error("Erro ao processar classificação")));
 
         } catch (Exception e) {
-            return Mono.just(handleApiError("construção de requisição de classificação", e, 
-                                          ProductClassificationResponse.error("Erro interno do servidor")));
+            return Mono.just(handleApiError("construção de requisição de classificação", e,
+                    ProductClassificationResponse.error("Erro interno do servidor")));
         }
     }
 
@@ -62,55 +62,36 @@ public class ProductTangibilityService extends BaseGeminiService {
         }
 
         return """
-                Classifique o seguinte produto por TANGIBILIDADE e responda EXATAMENTE no formato JSON:
+                Classifique por TANGIBILIDADE e responda em JSON:
 
                 {
                   "tangibilityType": "TANGIBLE|INTANGIBLE|HYBRID",
                   "tangibilitySubtype": "DURABLE|NON_DURABLE|CONSUMABLE|SERVICE|DIGITAL|EXPERIENCE|KNOWLEDGE|MIXED",
                   "productPriceCategory": "VERY_HIGH_COST|HIGH_COST|MEDIUM_COST|LOW_COST",
-                  "lifeCycle": "SHORT|MID|LONG"
+                  "lifeCycle": "SHORT|MID|LONG",
                   "confidence": 0.95,
-                  "explanation": "Explicação clara do por que esta classificação foi escolhida",
-                  "characteristics": ["característica 1", "característica 2", "característica 3"]
+                  "explanation": "Breve explicação da classificação",
+                  "characteristics": ["característica 1", "característica 2"]
                 }
 
-                DEFINIÇÕES:
-                lifeCycle (tempo de vida útil):
-                - SHORT: tempo de vida útil curto
-                - MID: tempo de vida útil médio
-                - LONG: tempo de vida útil longo
+                TIPOS:
+                TANGIBLE: DURABLE (carros, móveis), NON_DURABLE (roupas), CONSUMABLE (alimentos)
+                INTANGIBLE: SERVICE (consultoria), DIGITAL (software), EXPERIENCE (viagens), KNOWLEDGE (patentes)
+                HYBRID: MIXED (combinação)
 
-                productPriceCategory (Preço do produto):
-                - VERY_HIGH_COST: preço acima de 100 mil reais
-                - HIGH_COST: preço acima de 50 mil reais
-                - MEDIUM_COST: preço acima de 1 mil reais
-                - LOW_COST: preço ate 1 mil reais
-                
-                TANGIBLE (Tangível):
-                - DURABLE: Produtos físicos duráveis (carros, móveis, eletrônicos)
-                - NON_DURABLE: Produtos físicos não duráveis (roupas, calçados)
-                - CONSUMABLE: Produtos consumíveis (alimentos, cosméticos, medicamentos)
+                PREÇO: VERY_HIGH_COST (>100k), HIGH_COST (>50k), MEDIUM_COST (>1k), LOW_COST (≤1k)
+                VIDA ÚTIL: SHORT (curta), MID (média), LONG (longa)
 
-                INTANGIBLE (Intangível):
-                - SERVICE: Serviços (consultoria, limpeza, transporte)
-                - DIGITAL: Produtos digitais (software, apps, e-books)
-                - EXPERIENCE: Experiências (viagens, eventos, cursos)
-                - KNOWLEDGE: Conhecimento/informação (patentes, licenças, dados)
+                Produto: %s
 
-                HYBRID (Híbrido):
-                - MIXED: Combinação de elementos tangíveis e intangíveis
-
-                Produto para classificar:
-                %s
-
-                Responda apenas com o JSON, sem texto adicional.
+                Responda apenas o JSON.
                 """.formatted(productInfo.toString());
     }
 
     private ProductClassificationResponse parseClassificationResponse(String responseBody, String productName) {
         try {
             String content = extractContentFromResponse(responseBody);
-            
+
             if (content == null) {
                 logger.warn("Nenhum conteúdo extraído da resposta da API para classificação de produto");
                 return ProductClassificationResponse.error("Nenhuma classificação gerada");
@@ -119,8 +100,8 @@ public class ProductTangibilityService extends BaseGeminiService {
             return parseJsonFromContent(content, productName);
 
         } catch (Exception e) {
-            return handleApiError("parse da classificação", e, 
-                                ProductClassificationResponse.error("Erro ao processar classificação"));
+            return handleApiError("parse da classificação", e,
+                    ProductClassificationResponse.error("Erro ao processar classificação"));
         }
     }
 
