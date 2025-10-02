@@ -37,7 +37,7 @@ public class SentimentAnalysisService extends BaseGeminiService {
 
 
     private String buildSentimentPrompt(SentimentRequest request) {
-        return String.format("""
+        return """
                 Analise o sentimento do seguinte texto e responda EXATAMENTE no formato JSON:
 
                 {
@@ -50,7 +50,7 @@ public class SentimentAnalysisService extends BaseGeminiService {
                 "%s"
 
                 Responda apenas com o JSON, sem texto adicional.
-                """, request.getText());
+                """.formatted(request.getText());
     }
 
     private SentimentResponse parseSentimentResponse(String responseBody, String originalText) {

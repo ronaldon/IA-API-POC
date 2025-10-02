@@ -61,7 +61,7 @@ public class ProductTangibilityService extends BaseGeminiService {
             productInfo.append("\nCategoria: ").append(request.getCategory());
         }
 
-        return String.format("""
+        return """
                 Classifique o seguinte produto por TANGIBILIDADE e responda EXATAMENTE no formato JSON:
 
                 {
@@ -104,7 +104,7 @@ public class ProductTangibilityService extends BaseGeminiService {
                 %s
 
                 Responda apenas com o JSON, sem texto adicional.
-                """, productInfo.toString());
+                """.formatted(productInfo.toString());
     }
 
     private ProductClassificationResponse parseClassificationResponse(String responseBody, String productName) {

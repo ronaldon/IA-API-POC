@@ -13,7 +13,7 @@ import java.util.Map;
 public class TextSummaryService extends BaseGeminiService {
     
     public Mono<AiResponse> summarizeText(SummaryRequest request) {
-        logOperationStart("resumo de texto", String.format("Texto de %d caracteres", request.getText().length()));
+        logOperationStart("resumo de texto", "Texto de %d caracteres".formatted(request.getText().length()));
         
         try {
             String prompt = buildSummaryPrompt(request);
@@ -48,14 +48,14 @@ public class TextSummaryService extends BaseGeminiService {
             default -> "Crie um resumo conciso e direto";
         };
         
-        return String.format("""
+        return """
             %s do seguinte texto em no máximo %d sentenças.
             
             Mantenha as informações mais importantes e o contexto principal.
             
             Texto original:
             %s
-            """, styleInstruction, request.getMaxSentences(), request.getText());
+            """.formatted(styleInstruction, request.getMaxSentences(), request.getText());
     }
     
     private AiResponse parseGeminiResponse(String responseBody, String model) {

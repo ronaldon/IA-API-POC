@@ -278,8 +278,7 @@ public abstract class BaseGeminiService {
         logger.error("Erro em operação [{}]: {}", operation, e.getMessage());
 
         // Log additional context based on exception type
-        if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
-            org.springframework.web.reactive.function.client.WebClientResponseException webEx = (org.springframework.web.reactive.function.client.WebClientResponseException) e;
+        if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException webEx) {
             logger.error("Status HTTP: {}, Response Body: {}", webEx.getStatusCode(), webEx.getResponseBodyAsString());
         } else if (e instanceof java.net.ConnectException || e instanceof java.net.SocketTimeoutException) {
             logger.error("Erro de conectividade na operação [{}]: Verifique a conexão com a API Gemini", operation);
@@ -309,8 +308,7 @@ public abstract class BaseGeminiService {
         logger.error("Erro em operação [{}] com contexto [{}]: {}", operation, context, e.getMessage());
 
         // Log additional context based on exception type
-        if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
-            org.springframework.web.reactive.function.client.WebClientResponseException webEx = (org.springframework.web.reactive.function.client.WebClientResponseException) e;
+        if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException webEx) {
             logger.error("Status HTTP: {}, Response Body: {}", webEx.getStatusCode(), webEx.getResponseBodyAsString());
         }
 

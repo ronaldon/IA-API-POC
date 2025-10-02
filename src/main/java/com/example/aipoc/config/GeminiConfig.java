@@ -13,9 +13,9 @@ public class GeminiConfig {
     
     @Value("${gemini.api.url}")
     private String apiUrl;
-    
+
     @Bean
-    public WebClient geminiWebClient() {
+    WebClient geminiWebClient() {
         return WebClient.builder()
                 .baseUrl(apiUrl)
                 .defaultHeader("Content-Type", "application/json")
